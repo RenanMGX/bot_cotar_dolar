@@ -249,11 +249,6 @@ if __name__== "__main__":
         while True:
             try:
                 bot = bot_navegador()
-                
-                with open("test.json", "w")as arqui:
-                    json.dump(bot, arqui)
-                    sys.exit()
-
                 bot.executando(roteiro)
                 if not bot.cotacao:
                     continue
