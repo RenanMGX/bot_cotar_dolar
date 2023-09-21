@@ -1,14 +1,9 @@
 import subprocess
 import sys
-#subprocess.check_output("pip install --upgrade selenium", shell=True)
-#import selenium
 import psutil
 from selenium import webdriver
-#from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-#from selenium.webdriver.common.keys import Keys
-#from selenium.common.exceptions import NoSuchWindowException
 import datetime
 from time import sleep
 import json
@@ -28,8 +23,10 @@ def carregar_json():
             with open("config.json", "w")as arqui:
                 arqui.write(jason_default)
 
+# dicionario com os dados para login no SAP
 dados_jason = carregar_json()
 
+#tratamento de datas 
 hoje_bruto = datetime.datetime.now()
 ontem_bruto = hoje_bruto - datetime.timedelta(days=1)
 hoje = hoje_bruto.strftime("%d%m%Y")
@@ -54,6 +51,11 @@ def fechar_programa(process_name, insta=False):
 
 class Bot_sap():
     def __init__(self):
+        '''
+        metodo para construir o objeto
+        quando o metodo é criado ele faz o login no sap
+        '''
+        #caminho onde o SAP está instalado no sistema
         path = r"C:\Program Files (x86)\SAP\FrontEnd\SapGui\saplogon.exe"
         subprocess.Popen(path)
         sleep(5)
@@ -63,7 +65,7 @@ class Bot_sap():
             return
         
         self.application = self.SapGuiAuto.GetScriptingEngine
-        self.connection = self.application.OpenConnection(dados_jason["entrada_sap"], True)
+        self.connection = self.application.OpenConnection(dados_jason["entrada_sap"], True) # aqui é chamado o dicionario com osa dados de login utilizando a chave da "entrada_sap" coloque a descrição da entrada SAP para o script encontrar a entrada correta
 
         #sleep(3)
         self.session = self.connection.Children(0)
@@ -72,17 +74,24 @@ class Bot_sap():
         self.finalizou = False
 
     def sapLogin(self):
+        '''
+        metodo para fazer login no sap 
+        '''
         try:
-            #self.session.findById("wnd[0]/usr/txtRSYST-MANDT").text = "400"
-            self.session.findById("wnd[0]/usr/txtRSYST-BNAME").text = dados_jason["user"]
-            self.session.findById("wnd[0]/usr/pwdRSYST-BCODE").text = dados_jason["pass"]
-            #self.session.findById("wnd[0]/usr/txtRSYST-LANGU").text = "PT"
+            self.session.findById("wnd[0]/usr/txtRSYST-BNAME").text = dados_jason["user"] # aqui é chamado o dicionario com os dados do usuario usando a key "user" com o usuario de login
+            self.session.findById("wnd[0]/usr/pwdRSYST-BCODE").text = dados_jason["pass"] # aqui é chamado o dicionario com os dados da senha usando a key "pass" com a senha salva no Json
             self.session.findById("wnd[0]").sendVKey(0)
            
         except Exception as error:
             registro(error)
-            #print(sys.exc_info()[0])
+
     def sap_auto(self, cotacao):
+        '''
+        metodo para iniciar os procedimentos de uso no SAP previamente gravados usando a ferramenta de graçavação do proprio sap
+        e gerando o arquivo .vbs,
+        copie só as linhas com o session.finById() e adicione o self.,
+        em algumas linhas no final é preciso adicionar o "()".
+        '''
         data = ontem_bruto.strftime("%d.%m.%Y")
         try:
             self.session.findById("wnd[0]").maximize()
@@ -139,11 +148,17 @@ class Bot_sap():
 
 class bot_navegador():
     def __init__(self):
+        '''
+        metodo construtor responsavel por abrir o navegador do google chrome na pagina solicitada
+        '''
         self.navegador = webdriver.Chrome()
         self.navegador.get("https://ptax.bcb.gov.br/ptax_internet/consultaBoletim.do?method=exibeFormularioConsultaBoletim")
         self.cotacao = {}
     
     def clicar(self, target=None):
+        '''
+        metodo utilizado para clicar em lugares da pagina aceia apenas XPATH que será recebido pelo 'target'
+        '''
         try:
             button = self.navegador.find_element(By.XPATH, target)
             button.click()
@@ -151,6 +166,9 @@ class bot_navegador():
             registro(error)
     
     def escrever(self, target=None, texto=None):
+        '''
+        metodo utilizado para escrever em algum campo do site os dados recebidos pelo 'texto' o metodo aceita apenas XPATH que é recebido pelo 'target'.
+        '''
         try:
             button = self.navegador.find_element(By.XPATH, target)
             button.clear()
@@ -159,6 +177,13 @@ class bot_navegador():
             registro(error)
 
     def salvar(self, target=None, key=None):
+        '''
+        metodo utilizado para copiar dados de um campo no site
+        este metodo especificamente coleta os dados de uma tabela no site do banco do brasil e separa por linhas o dado
+        depois ele verifica linha por linha se tem a data solicitada que por padrão será a data do dia anterior
+        caso ache a linha com a data especificada ele da um 'split' na linha dividindo pelo espaço vazio ' ' e seleciona o valor que estiver no endereço 2 que estará o valor da moeda solicitada
+        ele salva em uma instancia global 'self.cotacao' e define a chave pelo valor recebido por 'key' esté metodo só aceita XPATH que é recebido pelo 'target'
+        '''
         try:
             button = self.navegador.find_element(By.XPATH, target)
             valor = button.text
@@ -166,12 +191,18 @@ class bot_navegador():
             for data in valor:
                 if ontem_verificar in data:
                     valor_moeda = data.split(" ")
+                    # até o desenvolvimento desse script o endereço [2] da variavel 'valor_moeda' será o valor monetario
                     self.cotacao[key] = valor_moeda[2]
 
         except Exception as error:
             registro(error)
 
     def esperar(self, target=None):
+        '''
+        metodo responsavel por esperar o elemento XPATH aparecer na pagina para depois dar continuidade ao script
+        isso ajuda caso a pagina demore a carregar e o script não avançe o roteiro sem necessidade
+        o metodo aceita apenas XPATH recebido pelo 'target'.
+        '''
         while True:
             try:
                 self.navegador.find_element(By.XPATH, target)
@@ -181,6 +212,9 @@ class bot_navegador():
     
     
     def testes(self, target=None):
+        '''
+        metodo reservado apenas para testes no desenvolvimento do bot.
+        '''
         try:
             buttom = self.navegador.find_element(By.XPATH, target)
             #buttom.clear()
@@ -214,6 +248,14 @@ class bot_navegador():
 
 
 def registro(error="OK"):
+    '''
+    está função salva um registro na mesma pasta do da execução do script,
+    funciona para ser um tipo de log para saber se o script deu error ou foi executado corretamente,
+    ele faz o registro em um arquivo .csv separados por ';' com as seguintes categorias de dados:
+    -data: dia/mes/ano da ocorrencia
+    -hora: hora:minuto:segundo da ocorrencia
+    -error: registro da ocorrencia tanto positiva quanto negativa, no caso de negativa geramente é o error retornado pelo Exeption.
+    '''
     print(error)
     error = str(error)
     error = error.replace("\n"," ")
