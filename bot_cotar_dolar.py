@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 import psutil
@@ -9,6 +10,36 @@ from time import sleep
 import json
 import win32com.client
 
+if not os.path.exists("bot_cotar_dolar"):
+    os.makedirs("bot_cotar_dolar")
+
+def cifra(texto, chave):
+    resultado = ""
+    for caractere in texto:
+        if caractere.isalpha():
+            # Verifica se o caractere é uma letra do alfabeto
+            maiuscula = caractere.isupper()
+            caractere = caractere.lower()
+            codigo = ord(caractere)
+            codigo = (codigo - ord('a') + chave) % 26 + ord('a')
+            if maiuscula:
+                resultado += chr(codigo).upper()
+            else:
+                resultado += chr(codigo)
+        elif caractere.isdigit():
+            # Verifica se o caractere é um número
+            codigo = ord(caractere)
+            codigo = (codigo - ord('0') + chave) % 10 + ord('0')
+            resultado += chr(codigo)
+        else:
+            # Mantém o caractere inalterado
+            resultado += caractere
+    return resultado
+
+def decifra(texto, chave):
+    return cifra(texto, -chave)
+
+
 def carregar_json():
     '''
     é responsavel por carregar um arquivo json contendo um dicionario com dados de login no sap.
@@ -17,16 +48,22 @@ def carregar_json():
     jason_default = '{"user" : "usuario", "pass" : "senha", "entrada_sap" : "descricao da entrada sap"}'
     while True:
         try:
-            with open("config.json", "r")as arqui:
+            with open("bot_cotar_dolar\\config.json", "r")as arqui:
                 return json.load(arqui)
         except:
-            with open("config.json", "w")as arqui:
+            with open("bot_cotar_dolar\\config.json", "w")as arqui:
                 arqui.write(jason_default)
 
 # dicionario com os dados para login no SAP
 dados_jason = carregar_json()
 
-#tratamento de datas 
+try:
+    dados_jason["pass"] = decifra(dados_jason["pass"], int(dados_jason["cifrar"]))
+except KeyError:
+    pass
+
+
+#tratamento de datas
 hoje_bruto = datetime.datetime.now()
 ontem_bruto = hoje_bruto - datetime.timedelta(days=1)
 hoje = hoje_bruto.strftime("%d%m%Y")
@@ -63,25 +100,25 @@ class Bot_sap():
         self.SapGuiAuto = win32com.client.GetObject("SAPGUI")
         if not type(self.SapGuiAuto) == win32com.client.CDispatch:
             return
-        
-        self.application = self.SapGuiAuto.GetScriptingEngine
-        self.connection = self.application.OpenConnection(dados_jason["entrada_sap"], True) # aqui é chamado o dicionario com osa dados de login utilizando a chave da "entrada_sap" coloque a descrição da entrada SAP para o script encontrar a entrada correta
 
-        #sleep(3)
+        self.application = self.SapGuiAuto.GetScriptingEngine
+        self.connection = self.application.OpenConnection(str(dados_jason["entrada_sap"]), True) # aqui é chamado o dicionario com osa dados de login utilizando a chave da "entrada_sap" coloque a descrição da entrada SAP para o script encontrar a entrada correta
+
+        sleep(3)
         self.session = self.connection.Children(0)
-        self.session.findById("wnd[0]").maximize
+        #self.session.findById("wnd[0]").maximize
 
         self.finalizou = False
 
     def sapLogin(self):
         '''
-        metodo para fazer login no sap 
+        metodo para fazer login no sap
         '''
         try:
             self.session.findById("wnd[0]/usr/txtRSYST-BNAME").text = dados_jason["user"] # aqui é chamado o dicionario com os dados do usuario usando a key "user" com o usuario de login
             self.session.findById("wnd[0]/usr/pwdRSYST-BCODE").text = dados_jason["pass"] # aqui é chamado o dicionario com os dados da senha usando a key "pass" com a senha salva no Json
             self.session.findById("wnd[0]").sendVKey(0)
-           
+
         except Exception as error:
             registro(error)
 
@@ -116,8 +153,8 @@ class Bot_sap():
             self.session.findById("wnd[0]/usr/tblSAPL0SAPTCTRL_V_TCURR/ctxtV_TCURR-GDATU[1,7]").text = data
             self.session.findById("wnd[0]/usr/tblSAPL0SAPTCTRL_V_TCURR/txtRFCU9-KURSM[2,0]").text = cotacao["dolar"]
             self.session.findById("wnd[0]/usr/tblSAPL0SAPTCTRL_V_TCURR/txtRFCU9-KURSM[2,1]").text = cotacao["euro"]
-            self.session.findById("wnd[0]/usr/tblSAPL0SAPTCTRL_V_TCURR/txtRFCU9-KURSM[2,2]").text = "1"
-            self.session.findById("wnd[0]/usr/tblSAPL0SAPTCTRL_V_TCURR/txtRFCU9-KURSM[2,3]").text = "1"
+            self.session.findById("wnd[0]/usr/tblSAPL0SAPTCTRL_V_TCURR/txtRFCU9-KURSM[2,2]").text = 1
+            self.session.findById("wnd[0]/usr/tblSAPL0SAPTCTRL_V_TCURR/txtRFCU9-KURSM[2,3]").text = 1
             self.session.findById("wnd[0]/usr/tblSAPL0SAPTCTRL_V_TCURR/ctxtV_TCURR-FCURR[5,0]").text = "BRL"
             self.session.findById("wnd[0]/usr/tblSAPL0SAPTCTRL_V_TCURR/ctxtV_TCURR-FCURR[5,1]").text = "BRL"
             self.session.findById("wnd[0]/usr/tblSAPL0SAPTCTRL_V_TCURR/ctxtV_TCURR-FCURR[5,2]").text = "BRL"
@@ -128,8 +165,8 @@ class Bot_sap():
             self.session.findById("wnd[0]/usr/tblSAPL0SAPTCTRL_V_TCURR/ctxtV_TCURR-FCURR[5,7]").text = "IGPM"
             self.session.findById("wnd[0]/usr/tblSAPL0SAPTCTRL_V_TCURR/txtRFCU9-KURSP[7,4]").text = cotacao["dolar"]
             self.session.findById("wnd[0]/usr/tblSAPL0SAPTCTRL_V_TCURR/txtRFCU9-KURSP[7,5]").text = cotacao["euro"]
-            self.session.findById("wnd[0]/usr/tblSAPL0SAPTCTRL_V_TCURR/txtRFCU9-KURSP[7,6]").text = "1"
-            self.session.findById("wnd[0]/usr/tblSAPL0SAPTCTRL_V_TCURR/txtRFCU9-KURSP[7,7]").text = "1"
+            self.session.findById("wnd[0]/usr/tblSAPL0SAPTCTRL_V_TCURR/txtRFCU9-KURSP[7,6]").text = 1
+            self.session.findById("wnd[0]/usr/tblSAPL0SAPTCTRL_V_TCURR/txtRFCU9-KURSP[7,7]").text = 1
             self.session.findById("wnd[0]/usr/tblSAPL0SAPTCTRL_V_TCURR/ctxtV_TCURR-TCURR[10,0]").text = "USD"
             self.session.findById("wnd[0]/usr/tblSAPL0SAPTCTRL_V_TCURR/ctxtV_TCURR-TCURR[10,1]").text = "EUR"
             self.session.findById("wnd[0]/usr/tblSAPL0SAPTCTRL_V_TCURR/ctxtV_TCURR-TCURR[10,2]").text = "MPN"
@@ -140,7 +177,7 @@ class Bot_sap():
             self.session.findById("wnd[0]/usr/tblSAPL0SAPTCTRL_V_TCURR/ctxtV_TCURR-TCURR[10,7]").text = "BRL"
             self.session.findById("wnd[0]").sendVKey(0)
             self.session.findById("wnd[0]/tbar[0]/btn[0]").press()
-            #self.session.findById("wnd[0]/tbar[0]/btn[11]").press()
+            self.session.findById("wnd[0]/tbar[0]/btn[11]").press()
 
             self.finalizou = True
         except Exception as error:
@@ -154,7 +191,7 @@ class bot_navegador():
         self.navegador = webdriver.Chrome()
         self.navegador.get("https://ptax.bcb.gov.br/ptax_internet/consultaBoletim.do?method=exibeFormularioConsultaBoletim")
         self.cotacao = {}
-    
+
     def clicar(self, target=None):
         '''
         metodo utilizado para clicar em lugares da pagina aceia apenas XPATH que será recebido pelo 'target'
@@ -164,7 +201,7 @@ class bot_navegador():
             button.click()
         except Exception as error:
             registro(error)
-    
+
     def escrever(self, target=None, texto=None):
         '''
         metodo utilizado para escrever em algum campo do site os dados recebidos pelo 'texto' o metodo aceita apenas XPATH que é recebido pelo 'target'.
@@ -209,8 +246,8 @@ class bot_navegador():
                 break
             except Exception as error:
                 registro(error)
-    
-    
+
+
     def testes(self, target=None):
         '''
         metodo reservado apenas para testes no desenvolvimento do bot.
@@ -223,7 +260,7 @@ class bot_navegador():
 
         except Exception as error:
             registro("Não Achou")
-    
+
     def executando(self, roteiro):
         '''
         action[0] - será os parametros para definir a ação
@@ -261,7 +298,7 @@ def registro(error="OK"):
     error = error.replace("\n"," ")
     data_atual = datetime.datetime.now().strftime("%d/%m/%Y")
     hora = datetime.datetime.now().strftime("%H:%M:%S")
-    with open("logs_error.csv", "a") as arqui:
+    with open("bot_cotar_dolar\\logs_error.csv", "a") as arqui:
         arqui.write(f"{data_atual};{hora};{error}\n")
 
 #parametros do roteiro
@@ -284,7 +321,10 @@ roteiro = [
     ["click","/html/body/div/form/div/input"], #pesquisar
     ["salvar","/html/body/div/table/tbody", "euro"], #salva na dict o valor do Euro
 ]
-        
+
+
+
+
 if __name__== "__main__":
     try:
         finalizador_emergencia = 0
@@ -305,8 +345,8 @@ if __name__== "__main__":
                     sys.exit()
         bot.navegador.quit()
         #input()
-        registro(bot.cotacao)    
-        finalizador_emergencia = 0 
+        registro(bot.cotacao)
+        finalizador_emergencia = 0
         while True:
             fechar_programa("saplogon.exe", insta=True)
             finalizador_emergencia += 1
@@ -326,6 +366,6 @@ if __name__== "__main__":
                 registro(error)
                 fechar_programa("saplogon.exe")
                 sleep(5*60)
-        sys .exit()  
+        sys .exit()
     except Exception as error:
         registro(error)
