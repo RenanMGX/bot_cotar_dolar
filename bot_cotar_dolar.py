@@ -200,7 +200,7 @@ class bot_navegador():
             button = self.navegador.find_element(By.XPATH, target)
             button.click()
         except Exception as error:
-            registro(error)
+            return
 
     def escrever(self, target=None, texto=None):
         '''
@@ -211,7 +211,7 @@ class bot_navegador():
             button.clear()
             button.send_keys(texto)
         except Exception as error:
-            registro(error)
+            return
 
     def salvar(self, target=None, key=None):
         '''
@@ -232,7 +232,7 @@ class bot_navegador():
                     self.cotacao[key] = valor_moeda[2]
 
         except Exception as error:
-            registro(error)
+            return
 
     def esperar(self, target=None):
         '''
@@ -240,12 +240,18 @@ class bot_navegador():
         isso ajuda caso a pagina demore a carregar e o script não avançe o roteiro sem necessidade
         o metodo aceita apenas XPATH recebido pelo 'target'.
         '''
+        contador = 0
         while True:
+            if contador >= 5*60:
+                return
+            else:
+                contador += 1
+
             try:
                 self.navegador.find_element(By.XPATH, target)
                 break
             except Exception as error:
-                registro(error)
+                sleep(1)
 
 
     def testes(self, target=None):
@@ -337,10 +343,11 @@ if __name__== "__main__":
                 else:
                     break
             except Exception as error:
-                registro(error)
-                sleep(30*60)
+                bot.close()
+                sleep(1)
                 finalizador_emergencia += 1
-                if finalizador_emergencia >= 5:
+                if finalizador_emergencia >= 15*60:
+                    registro(error)
                     registro("finalizador de emergencia do Navegador acionado!")
                     sys.exit()
         bot.navegador.quit()
