@@ -70,6 +70,8 @@ hoje = hoje_bruto.strftime("%d%m%Y")
 ontem = ontem_bruto.strftime("%d%m%Y")
 ontem_verificar = ontem_bruto.strftime("%d/%m/%Y")
 
+
+
 # Nome do processo que você deseja fechar (substitua pelo nome do processo correto)
 def fechar_programa(process_name, insta=False):
     if insta == False:
@@ -267,6 +269,15 @@ class bot_navegador():
         except Exception as error:
             registro("Não Achou")
 
+    def checar(self, target=None):
+        try:
+            button = self.navegador.find_element(By.XPATH, target)
+            if button.text == "• Não existe informação para a pesquisa efetuada! •":
+                registro("finalizador de emergencia do Navegador acionado: não existe cotação para esta data")
+                sys.exit()
+        except Exception as error:
+            return
+
     def executando(self, roteiro):
         '''
         action[0] - será os parametros para definir a ação
@@ -288,6 +299,8 @@ class bot_navegador():
                 self.navegador.get(action[1])
             elif param == "esperar":
                 self.esperar(target=action[1])
+            elif param == "checar":
+                self.checar(target=action[1])
 
 
 def registro(error="OK"):
@@ -319,6 +332,7 @@ roteiro = [
     ["escrever",'//*[@id="DATAFIM"]', hoje], #data final
     ["click","/html/body/div/form/table[2]/tbody/tr[4]/td[2]/select/option[58]"], #Dolar
     ["click","/html/body/div/form/div/input"], #pesquisar
+    ["checar", "/html/body/div[1]"],
     ["salvar","/html/body/div/table/tbody", "dolar"], #salvar na dict o valor do Dolar
     ["carregar_pagina","https://ptax.bcb.gov.br/ptax_internet/consultaBoletim.do?method=exibeFormularioConsultaBoletim"], #voltar para pagina inicial
     ["escrever",'//*[@id="DATAINI"]', ontem], #data inicial
