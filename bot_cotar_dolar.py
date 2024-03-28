@@ -94,10 +94,10 @@ class Bot_sap():
         metodo para construir o objeto
         quando o metodo é criado ele faz o login no sap
         '''
-        #caminho onde o SAP está instalado no sistema
-        path = r"C:\Program Files (x86)\SAP\FrontEnd\SapGui\saplogon.exe"
-        subprocess.Popen(path)
-        sleep(5)
+        if not self._verificar_sap_aberto():
+            print("abrindo programa SAP")
+            subprocess.Popen(r"C:\Program Files (x86)\SAP\FrontEnd\SapGui\saplogon.exe")
+            sleep(5)
 
         self.SapGuiAuto = win32com.client.GetObject("SAPGUI")
         if not type(self.SapGuiAuto) == win32com.client.CDispatch:
@@ -182,8 +182,32 @@ class Bot_sap():
             self.session.findById("wnd[0]/tbar[0]/btn[11]").press()
 
             self.finalizou = True
+            
         except Exception as error:
             registro(error)
+        finally:
+            self.fechar_sap()
+            
+    def fechar_sap(self):
+        try:
+            self.session
+        except AttributeError:
+            raise Exception("o sap precisa ser conectado primeiro!")
+        
+        print("fechando SAP!")
+        try:
+            sleep(1)
+            self.session.findById("wnd[0]").close()
+            sleep(1)
+            self.session.findById('wnd[1]/usr/btnSPOP-OPTION1').press()
+        except Exception as error:
+            print(f"não foi possivel fechar o SAP {type(error)} | {error}")
+            
+    def _verificar_sap_aberto(self) -> bool:
+        for process in psutil.process_iter(['name']):
+            if "saplogon" in process.name().lower():
+                return True
+        return False    
 
 class bot_navegador():
     def __init__(self):
@@ -369,23 +393,23 @@ if __name__== "__main__":
         registro(bot.cotacao)
         finalizador_emergencia = 0
         while True:
-            fechar_programa("saplogon.exe", insta=True)
+            #fechar_programa("saplogon.exe", insta=True)
             finalizador_emergencia += 1
             if finalizador_emergencia >= 15:
                 registro("finalizador de emergencia do SAP acionado!")
                 sys.exit()
-            print(finalizador_emergencia)
+            #print(finalizador_emergencia)
             try:
                 sap = Bot_sap()
                 sap.sapLogin()
                 sap.sap_auto(bot.cotacao)
                 if sap.finalizou == True:
                     registro("SAP - OK")
-                    fechar_programa("saplogon.exe")
+                    #fechar_programa("saplogon.exe")
                     break
             except Exception as error:
                 registro(error)
-                fechar_programa("saplogon.exe")
+                #fechar_programa("saplogon.exe")
                 sleep(5*60)
         sys .exit()
     except Exception as error:
