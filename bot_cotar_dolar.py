@@ -9,6 +9,7 @@ import datetime
 from time import sleep
 import json
 import win32com.client
+import traceback
 
 if not os.path.exists("bot_cotar_dolar"):
     os.makedirs("bot_cotar_dolar")
@@ -412,5 +413,14 @@ if __name__== "__main__":
                 #fechar_programa("saplogon.exe")
                 sleep(5*60)
         sys .exit()
+
     except Exception as error:
+        
         registro(error)
+        path:str = "logs/"
+        if not os.path.exists(path):
+            os.makedirs(path)
+        file_name = path + f"LogError_{datetime.now().strftime('%d%m%Y%H%M%Y')}.txt"
+        with open(file_name, 'w', encoding='utf-8')as _file:
+            _file.write(traceback.format_exc())
+        raise error
