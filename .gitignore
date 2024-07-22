@@ -5,3 +5,4 @@
 *.json
 *.vbs
 *venv
+*.vscode

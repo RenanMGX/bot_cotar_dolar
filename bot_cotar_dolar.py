@@ -10,58 +10,62 @@ from time import sleep
 import json
 import win32com.client
 import traceback
+from Entities.credenciais import Credential
 
 if not os.path.exists("bot_cotar_dolar"):
     os.makedirs("bot_cotar_dolar")
 
-def cifra(texto, chave):
-    resultado = ""
-    for caractere in texto:
-        if caractere.isalpha():
-            # Verifica se o caractere é uma letra do alfabeto
-            maiuscula = caractere.isupper()
-            caractere = caractere.lower()
-            codigo = ord(caractere)
-            codigo = (codigo - ord('a') + chave) % 26 + ord('a')
-            if maiuscula:
-                resultado += chr(codigo).upper()
-            else:
-                resultado += chr(codigo)
-        elif caractere.isdigit():
-            # Verifica se o caractere é um número
-            codigo = ord(caractere)
-            codigo = (codigo - ord('0') + chave) % 10 + ord('0')
-            resultado += chr(codigo)
-        else:
-            # Mantém o caractere inalterado
-            resultado += caractere
-    return resultado
+# def cifra(texto, chave):
+#     resultado = ""
+#     for caractere in texto:
+#         if caractere.isalpha():
+#             # Verifica se o caractere é uma letra do alfabeto
+#             maiuscula = caractere.isupper()
+#             caractere = caractere.lower()
+#             codigo = ord(caractere)
+#             codigo = (codigo - ord('a') + chave) % 26 + ord('a')
+#             if maiuscula:
+#                 resultado += chr(codigo).upper()
+#             else:
+#                 resultado += chr(codigo)
+#         elif caractere.isdigit():
+#             # Verifica se o caractere é um número
+#             codigo = ord(caractere)
+#             codigo = (codigo - ord('0') + chave) % 10 + ord('0')
+#             resultado += chr(codigo)
+#         else:
+#             # Mantém o caractere inalterado
+#             resultado += caractere
+#     return resultado
 
-def decifra(texto, chave):
-    return cifra(texto, -chave)
+# def decifra(texto, chave):
+#     return cifra(texto, -chave)
 
 
-def carregar_json():
-    '''
-    é responsavel por carregar um arquivo json contendo um dicionario com dados de login no sap.
-    caso o arquivo não estiver presente durante a execução irá  criar um arquivo default no lugar.
-    '''
-    jason_default = '{"user" : "usuario", "pass" : "senha", "entrada_sap" : "descricao da entrada sap"}'
-    while True:
-        try:
-            with open("bot_cotar_dolar\\config.json", "r")as arqui:
-                return json.load(arqui)
-        except:
-            with open("bot_cotar_dolar\\config.json", "w")as arqui:
-                arqui.write(jason_default)
+# def carregar_json():
+#     '''
+#     é responsavel por carregar um arquivo json contendo um dicionario com dados de login no sap.
+#     caso o arquivo não estiver presente durante a execução irá  criar um arquivo default no lugar.
+#     '''
+#     jason_default = '{"user" : "usuario", "pass" : "senha", "entrada_sap" : "descricao da entrada sap"}'
+#     while True:
+#         try:
+#             with open("bot_cotar_dolar\\config.json", "r")as arqui:
+#                 return json.load(arqui)
+#         except:
+#             with open("bot_cotar_dolar\\config.json", "w")as arqui:
+#                 arqui.write(jason_default)
 
-# dicionario com os dados para login no SAP
-dados_jason = carregar_json()
+# # dicionario com os dados para login no SAP
+# dados_jason = carregar_json()
 
-try:
-    dados_jason["pass"] = decifra(dados_jason["pass"], int(dados_jason["cifrar"]))
-except KeyError:
-    pass
+# try:
+#     dados_jason["pass"] = decifra(dados_jason["pass"], int(dados_jason["cifrar"]))
+# except KeyError:
+#     pass
+
+
+crd:dict = Credential('SAP_PRD').load()
 
 
 #tratamento de datas
@@ -105,7 +109,7 @@ class Bot_sap():
             return
 
         self.application = self.SapGuiAuto.GetScriptingEngine
-        self.connection = self.application.OpenConnection(str(dados_jason["entrada_sap"]), True) # aqui é chamado o dicionario com osa dados de login utilizando a chave da "entrada_sap" coloque a descrição da entrada SAP para o script encontrar a entrada correta
+        self.connection = self.application.OpenConnection(crd['ambiente'], True) # aqui é chamado o dicionario com osa dados de login utilizando a chave da "entrada_sap" coloque a descrição da entrada SAP para o script encontrar a entrada correta
 
         sleep(3)
         self.session = self.connection.Children(0)
@@ -118,12 +122,12 @@ class Bot_sap():
         metodo para fazer login no sap
         '''
         try:
-            self.session.findById("wnd[0]/usr/txtRSYST-BNAME").text = dados_jason["user"] # aqui é chamado o dicionario com os dados do usuario usando a key "user" com o usuario de login
-            self.session.findById("wnd[0]/usr/pwdRSYST-BCODE").text = dados_jason["pass"] # aqui é chamado o dicionario com os dados da senha usando a key "pass" com a senha salva no Json
+            self.session.findById("wnd[0]/usr/txtRSYST-BNAME").text = crd['user'] # aqui é chamado o dicionario com os dados do usuario usando a key "user" com o usuario de login
+            self.session.findById("wnd[0]/usr/pwdRSYST-BCODE").text = crd['password'] # aqui é chamado o dicionario com os dados da senha usando a key "pass" com a senha salva no Json
             self.session.findById("wnd[0]").sendVKey(0)
 
         except Exception as error:
-            registro(error)
+            registro(str(error))
 
     def sap_auto(self, cotacao):
         '''
@@ -185,7 +189,7 @@ class Bot_sap():
             self.finalizou = True
             
         except Exception as error:
-            registro(error)
+            registro(str(error))
         finally:
             self.fechar_sap()
             
@@ -236,7 +240,7 @@ class bot_navegador():
         try:
             button = self.navegador.find_element(By.XPATH, target)
             button.clear()
-            button.send_keys(texto)
+            button.send_keys(str(texto))
         except Exception as error:
             return
 
@@ -375,23 +379,23 @@ if __name__== "__main__":
         finalizador_emergencia = 0
         while True:
             try:
-                bot = bot_navegador()
+                bot:bot_navegador = bot_navegador()
                 bot.executando(roteiro)
                 if not bot.cotacao:
                     continue
                 else:
                     break
             except Exception as error:
-                bot.close()
+                bot.navegador.close()
                 sleep(1)
                 finalizador_emergencia += 1
                 if finalizador_emergencia >= 15*60:
-                    registro(error)
+                    registro(str(error))
                     registro("finalizador de emergencia do Navegador acionado!")
                     sys.exit()
         bot.navegador.quit()
         #input()
-        registro(bot.cotacao)
+        registro(str(bot.cotacao))
         finalizador_emergencia = 0
         while True:
             #fechar_programa("saplogon.exe", insta=True)
@@ -409,18 +413,18 @@ if __name__== "__main__":
                     #fechar_programa("saplogon.exe")
                     break
             except Exception as error:
-                registro(error)
+                registro(str(error))
                 #fechar_programa("saplogon.exe")
                 sleep(5*60)
         sys .exit()
 
     except Exception as error:
         
-        registro(error)
+        registro(str(error))
         path:str = "logs/"
         if not os.path.exists(path):
             os.makedirs(path)
-        file_name = path + f"LogError_{datetime.now().strftime('%d%m%Y%H%M%Y')}.txt"
+        file_name = path + f"LogError_{datetime.datetime.now().strftime('%d%m%Y%H%M%Y')}.txt"
         with open(file_name, 'w', encoding='utf-8')as _file:
             _file.write(traceback.format_exc())
         raise error
