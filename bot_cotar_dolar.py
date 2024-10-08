@@ -3,70 +3,19 @@ import subprocess
 import sys
 import psutil
 from selenium import webdriver
-from selenium.webdriver.support import expected_conditions as EC
+#from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 import datetime
 from time import sleep
-import json
 import win32com.client
-import traceback
-from Entities.credenciais import Credential
+from Entities.dependencies.credenciais import Credential
+from Entities.dependencies.config import Config
+from Entities.dependencies.logs import Logs, traceback
 
 if not os.path.exists("bot_cotar_dolar"):
     os.makedirs("bot_cotar_dolar")
 
-# def cifra(texto, chave):
-#     resultado = ""
-#     for caractere in texto:
-#         if caractere.isalpha():
-#             # Verifica se o caractere é uma letra do alfabeto
-#             maiuscula = caractere.isupper()
-#             caractere = caractere.lower()
-#             codigo = ord(caractere)
-#             codigo = (codigo - ord('a') + chave) % 26 + ord('a')
-#             if maiuscula:
-#                 resultado += chr(codigo).upper()
-#             else:
-#                 resultado += chr(codigo)
-#         elif caractere.isdigit():
-#             # Verifica se o caractere é um número
-#             codigo = ord(caractere)
-#             codigo = (codigo - ord('0') + chave) % 10 + ord('0')
-#             resultado += chr(codigo)
-#         else:
-#             # Mantém o caractere inalterado
-#             resultado += caractere
-#     return resultado
-
-# def decifra(texto, chave):
-#     return cifra(texto, -chave)
-
-
-# def carregar_json():
-#     '''
-#     é responsavel por carregar um arquivo json contendo um dicionario com dados de login no sap.
-#     caso o arquivo não estiver presente durante a execução irá  criar um arquivo default no lugar.
-#     '''
-#     jason_default = '{"user" : "usuario", "pass" : "senha", "entrada_sap" : "descricao da entrada sap"}'
-#     while True:
-#         try:
-#             with open("bot_cotar_dolar\\config.json", "r")as arqui:
-#                 return json.load(arqui)
-#         except:
-#             with open("bot_cotar_dolar\\config.json", "w")as arqui:
-#                 arqui.write(jason_default)
-
-# # dicionario com os dados para login no SAP
-# dados_jason = carregar_json()
-
-# try:
-#     dados_jason["pass"] = decifra(dados_jason["pass"], int(dados_jason["cifrar"]))
-# except KeyError:
-#     pass
-
-
-crd:dict = Credential('SAP_PRD').load()
-
+crd:dict = Credential(Config()['credential']['crd']).load()
 
 #tratamento de datas
 hoje_bruto = datetime.datetime.now()
@@ -74,8 +23,6 @@ ontem_bruto = hoje_bruto - datetime.timedelta(days=1)
 hoje = hoje_bruto.strftime("%d%m%Y")
 ontem = ontem_bruto.strftime("%d%m%Y")
 ontem_verificar = ontem_bruto.strftime("%d/%m/%Y")
-
-
 
 # Nome do processo que você deseja fechar (substitua pelo nome do processo correto)
 def fechar_programa(process_name, insta=False):
@@ -91,7 +38,6 @@ def fechar_programa(process_name, insta=False):
             break
     else:
         print(f"Processo {process_name} não encontrado.")
-
 
 class Bot_sap():
     def __init__(self):
@@ -416,15 +362,8 @@ if __name__== "__main__":
                 registro(str(error))
                 #fechar_programa("saplogon.exe")
                 sleep(5*60)
-        sys .exit()
-
-    except Exception as error:
         
-        registro(str(error))
-        path:str = "logs/"
-        if not os.path.exists(path):
-            os.makedirs(path)
-        file_name = path + f"LogError_{datetime.datetime.now().strftime('%d%m%Y%H%M%Y')}.txt"
-        with open(file_name, 'w', encoding='utf-8')as _file:
-            _file.write(traceback.format_exc())
-        raise error
+        Logs().register(status='Concluido', description=f"Cotação Registrada: {bot.cotacao}")
+        sys.exit()
+    except Exception as err:
+        Logs().register(status='Error', description=str(err), exception=traceback.format_exc())

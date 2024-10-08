@@ -6,3 +6,6 @@
 *.vbs
 *venv
 *.vscode
+*bot_cotar_dolar
+*config.init
+*Logs
