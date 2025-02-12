@@ -11,6 +11,7 @@ import win32com.client
 from Entities.dependencies.credenciais import Credential
 from Entities.dependencies.config import Config
 from Entities.dependencies.logs import Logs, traceback
+from Entities.dependencies.sap import SAPManipulation
 
 if not os.path.exists("bot_cotar_dolar"):
     os.makedirs("bot_cotar_dolar")
@@ -39,42 +40,20 @@ def fechar_programa(process_name, insta=False):
     else:
         print(f"Processo {process_name} não encontrado.")
 
-class Bot_sap():
+
+class Bot_sap(SAPManipulation):
     def __init__(self):
         '''
         metodo para construir o objeto
         quando o metodo é criado ele faz o login no sap
         '''
-        if not self._verificar_sap_aberto():
-            print("abrindo programa SAP")
-            subprocess.Popen(r"C:\Program Files (x86)\SAP\FrontEnd\SapGui\saplogon.exe")
-            sleep(5)
-
-        self.SapGuiAuto = win32com.client.GetObject("SAPGUI")
-        if not type(self.SapGuiAuto) == win32com.client.CDispatch:
-            return
-
-        self.application = self.SapGuiAuto.GetScriptingEngine
-        self.connection = self.application.OpenConnection(crd['ambiente'], True) # aqui é chamado o dicionario com osa dados de login utilizando a chave da "entrada_sap" coloque a descrição da entrada SAP para o script encontrar a entrada correta
-
-        sleep(3)
-        self.session = self.connection.Children(0)
-        #self.session.findById("wnd[0]").maximize
-
+        
+        super().__init__(user=crd['user'], password=crd['password'], ambiente=crd['ambiente'])
+        
         self.finalizou = False
 
-    def sapLogin(self):
-        '''
-        metodo para fazer login no sap
-        '''
-        try:
-            self.session.findById("wnd[0]/usr/txtRSYST-BNAME").text = crd['user'] # aqui é chamado o dicionario com os dados do usuario usando a key "user" com o usuario de login
-            self.session.findById("wnd[0]/usr/pwdRSYST-BCODE").text = crd['password'] # aqui é chamado o dicionario com os dados da senha usando a key "pass" com a senha salva no Json
-            self.session.findById("wnd[0]").sendVKey(0)
-
-        except Exception as error:
-            registro(str(error))
-
+    
+    @SAPManipulation.start_SAP
     def sap_auto(self, cotacao):
         '''
         metodo para iniciar os procedimentos de uso no SAP previamente gravados usando a ferramenta de graçavação do proprio sap
@@ -139,26 +118,6 @@ class Bot_sap():
         finally:
             self.fechar_sap()
             
-    def fechar_sap(self):
-        try:
-            self.session
-        except AttributeError:
-            raise Exception("o sap precisa ser conectado primeiro!")
-        
-        print("fechando SAP!")
-        try:
-            sleep(1)
-            self.session.findById("wnd[0]").close()
-            sleep(1)
-            self.session.findById('wnd[1]/usr/btnSPOP-OPTION1').press()
-        except Exception as error:
-            print(f"não foi possivel fechar o SAP {type(error)} | {error}")
-            
-    def _verificar_sap_aberto(self) -> bool:
-        for process in psutil.process_iter(['name']):
-            if "saplogon" in process.name().lower():
-                return True
-        return False    
 
 class bot_navegador():
     def __init__(self):
@@ -332,7 +291,7 @@ if __name__== "__main__":
                 else:
                     break
             except Exception as error:
-                bot.navegador.close()
+                bot.navegador.close() #type: ignore
                 sleep(1)
                 finalizador_emergencia += 1
                 if finalizador_emergencia >= 15*60:
@@ -352,10 +311,10 @@ if __name__== "__main__":
             #print(finalizador_emergencia)
             try:
                 sap = Bot_sap()
-                sap.sapLogin()
                 sap.sap_auto(bot.cotacao)
                 if sap.finalizou == True:
                     registro("SAP - OK")
+                    sap.fechar_sap()
                     #fechar_programa("saplogon.exe")
                     break
             except Exception as error:
