@@ -48,7 +48,7 @@ class Bot_sap(SAPManipulation):
         quando o metodo é criado ele faz o login no sap
         '''
         
-        super().__init__(user=crd['user'], password=crd['password'], ambiente=crd['ambiente'])
+        super().__init__(user=crd['user'], password=crd['password'], ambiente=crd['ambiente'], new_conection=True)
         
         self.finalizou = False
 
