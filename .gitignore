@@ -12,6 +12,7 @@
 *__pycache__
 *teste.py
 *teste.ipynb
+*.zip
 
 # Created by https://www.toptal.com/developers/gitignore/api/python
 # Edit at https://www.toptal.com/developers/gitignore?templates=python

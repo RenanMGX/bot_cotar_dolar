@@ -25,6 +25,10 @@ https://documentation.botcity.dev/tutorials/custom-automations/python-custom/
 from botcity.maestro import * #type: ignore
 import traceback
 from patrimar_dependencies.gemini_ia import ErrorIA
+from Entities.web import Web, datetime, relativedelta
+from Entities.sap import SAP
+from Entities.utils import *
+from Entities.exceptions import *
 
 # Disable errors if we are not connected to Maestro
 BotMaestroSDK.RAISE_NOT_CONNECTED = False #type: ignore
@@ -33,7 +37,41 @@ BotMaestroSDK.RAISE_NOT_CONNECTED = False #type: ignore
 class Execute:
     @staticmethod
     def start():
-        pass
+        date_param = execution.parameters.get("date")
+        if date_param:
+            date = datetime.strptime(str(date_param), "%d/%m/%Y")
+        else:
+            date = datetime.now() - relativedelta(days=1)  # Data de exemplo, pode ser alterada conforme necessário
+        
+        crd_param = execution.parameters.get("crd")
+        if not isinstance(crd_param, str):
+            raise ValueError("Parâmetro 'crd_param' deve ser uma string representando o label da credencial.")
+        
+        
+        web = Web(maestro=maestro, headless=True)
+        moedas = {}
+        moedas |= web.get_moeda('DOLAR DOS EUA', date=date)
+        moedas |= web.get_moeda('EURO', date=date)
+
+        if not verificar_cotaçoes(
+            cotacoes_verificar=["DOLAR DOS EUA", "EURO"],
+            cotacoes_disponiveis=moedas,
+        ):
+            raise CotacoesNotFoundException(f"Cotação não encontrada para DOLAR DOS EUA ou EURO na data especificada. - {moedas}")
+        
+        try:
+            sap = SAP(
+                maestro=maestro,
+                user=maestro.get_credential(label=crd_param, key="user"),
+                password=maestro.get_credential(label=crd_param, key="password"),
+                ambiente=maestro.get_credential(label=crd_param, key="ambiente")
+            )
+            
+            if not sap.registrar(cotacao=moedas, date=date):
+                raise SAPCotacoesNotSavedException(f"Não foi possível registrar as cotações no SAP para a data {date.strftime('%d/%m/%Y')}. - {moedas}")
+        finally:
+            sap.fechar_sap() #type: ignore
+
 
 if __name__ == '__main__':
     maestro = BotMaestroSDK.from_sys_args()
@@ -41,7 +79,6 @@ if __name__ == '__main__':
     print(f"Task ID is: {execution.task_id}")
     print(f"Task Parameters are: {execution.parameters}")
     
-    print(f"TOKENNNN: {maestro.get_credential(label="GeminiIA-Token-Default", key="token")}")
 
     try:
         Execute.start()
@@ -49,19 +86,45 @@ if __name__ == '__main__':
         maestro.finish_task(
                     task_id=execution.task_id,
                     status=AutomationTaskFinishStatus.SUCCESS,
-                    message="Tarefa BotYoutube finalizada com sucesso",
+                    message="Tarefa Cotação no SAP foi finalizada com sucesso",
                     total_items=1, # Número total de itens processados
                     processed_items=1, # Número de itens processados com sucesso
                     failed_items=0 # Número de itens processados com falha
         )
-        raise Exception("Teste")
+        
+    except CotacoesNotFoundException as error:
+        maestro.finish_task(
+                    task_id=execution.task_id,
+                    status=AutomationTaskFinishStatus.SUCCESS,
+                    message="Tarefa Cotação no SAP foi finalizada mas não encontrou as cotações",
+                    total_items=1, # Número total de itens processados
+                    processed_items=0, # Número de itens processados com sucesso
+                    failed_items=1 # Número de itens processados com falha
+        )
+        
+        
+    except SAPCotacoesNotSavedException as error:
+        maestro.finish_task(
+                    task_id=execution.task_id,
+                    status=AutomationTaskFinishStatus.FAILED,
+                    message="Tarefa Cotação no SAP falhou ao salvar as cotações",
+                    total_items=1, # Número total de itens processados
+                    processed_items=0, # Número de itens processados com sucesso
+                    failed_items=1 # Número de itens processados com falha
+        )
+        
         
     except Exception as error:
-        token = maestro.get_credential(label="GeminiIA-Token-Default", key="token")
-        if isinstance(token, str):
-            is_result:str = ErrorIA.error_message(
-                token=token,
-                message=traceback.format_exc()
-            )
-
-        maestro.error(task_id=int(execution.task_id), exception=error, tags={"IA Response": "tag"})
+        ia_response = "Sem Resposta da IA"
+        try:
+            token = maestro.get_credential(label="GeminiIA-Token-Default", key="token")
+            if isinstance(token, str):
+                ia_result = ErrorIA.error_message(
+                    token=token,
+                    message=traceback.format_exc()
+                )
+                ia_response = ia_result.replace("\n", " ")
+        except Exception as e:
+            maestro.error(task_id=int(execution.task_id), exception=e)
+            
+        maestro.error(task_id=int(execution.task_id), exception=error, tags={"IA Analise": ia_response})

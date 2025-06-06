@@ -1,9 +1,11 @@
 import os
 from patrimar_dependencies.sap import SAPManipulation
 from datetime import datetime
+from botcity.maestro import * # type: ignore
 
 class SAP(SAPManipulation):
-    def __init__(self, *, user:str, password:str, ambiente:str) -> None:
+    def __init__(self, *, maestro:BotMaestroSDK, user:str, password:str, ambiente:str) -> None:
+        self.maestro:BotMaestroSDK = maestro
         super().__init__(user=user, password=password, ambiente=ambiente)
         
         
@@ -69,6 +71,13 @@ class SAP(SAPManipulation):
         if result == 'Dados gravados':
             return True
         else:
+            self.maestro.alert(
+                task_id=self.maestro.get_execution().task_id,
+                title="Alerta do SAP caso dados não sejam salvos",
+                message=f"Não foi possível registrar as cotações no SAP para a data {date.strftime('%d/%m/%Y')}. - {cotacao} motivo: {result}",
+                alert_type=AlertType.ERROR
+            )                
+            
             return False
         
 if __name__ == "__main__":

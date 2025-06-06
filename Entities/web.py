@@ -3,9 +3,12 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from patrimar_dependencies.functions import P
 from typing import Literal
+from botcity.maestro import *  # type: ignore
+
 
 class Web(NavegadorChrome):
-    def __init__(self, headless:bool=True):
+    def __init__(self, *, maestro:BotMaestroSDK, headless:bool=True):
+        self.maestro:BotMaestroSDK = maestro
         super().__init__(headless=headless)
         
     def get_moeda(self, moeda:Literal["DOLAR DOS EUA", "EURO"]|str, *, date:datetime):
@@ -34,6 +37,14 @@ class Web(NavegadorChrome):
             error = self.find_element(By.XPATH, '/html/body/div[1]', timeout=1).text
             if '• Não existe informação para a pesquisa efetuada! •' == error:
                 print(P(error))
+                
+                self.maestro.alert(
+                    task_id=self.maestro.get_execution().task_id,
+                    title="Cotação não encontrada!",
+                    message=f"• Não existe informação para a pesquisa efetuada! • para a cotação da moeda '{moeda}' da data {date.strftime("%d/%m/%Y")}",
+                    alert_type=AlertType.INFO
+                )                
+                
                 return {}
         except:
             pass
