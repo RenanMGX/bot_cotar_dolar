@@ -1,1 +1,0 @@
-PROJECT_NAME:str = "Bot Cotação do Dolar e Euro no SAP"
