@@ -69,8 +69,17 @@ class Execute:
             
             if not sap.registrar(cotacao=moedas, date=date):
                 raise SAPCotacoesNotSavedException(f"Não foi possível registrar as cotações no SAP para a data {date.strftime('%d/%m/%Y')}. - {moedas}")
+            
+            maestro.new_log_entry(
+                activity_label="Cotacao_no_SAP",
+                values={
+                    "infor": f"Cotação do Dolar: {moedas.get('DOLAR DOS EUA', 'N/A')}, Cotação do Euro: {moedas.get('EURO', 'N/A')}, Data: {date.strftime('%d/%m/%Y')}"
+                }
+            )            
         finally:
             sap.fechar_sap() #type: ignore
+            
+        
 
 
 if __name__ == '__main__':
